@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Wildlands Survival — Prototype</title>
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#91b9c8;font-family:system-ui,Arial,sans-serif;touch-action:none}
+#game{position:fixed;inset:0}canvas{display:block;width:100%;height:100%}
+#hud{position:fixed;inset:0;pointer-events:none;color:#fff;text-shadow:0 2px 4px #000}
+.panel{background:#07130dcc;border:1px solid #ffffff35;border-radius:12px;padding:9px 12px;backdrop-filter:blur(5px)}
+#top{position:absolute;left:10px;right:10px;top:10px;display:flex;gap:8px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}
+#stats{min-width:155px;font-size:12px;line-height:1.6}#title{font-weight:900;letter-spacing:1px;font-size:14px}
+.bar{height:7px;background:#333;border-radius:9px;overflow:hidden;margin:2px 0 5px}.fill{height:100%;width:100%;background:#62d36e}
+#objective{font-size:11px;max-width:185px}#toast{position:absolute;top:27%;left:50%;transform:translateX(-50%);font-weight:800;background:#07130dcc;border-radius:20px;padding:8px 14px;opacity:0;transition:opacity .2s;text-align:center;max-width:85vw}
+#crosshair{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:23px;font-weight:300}
+#bottom{position:absolute;bottom:12px;left:12px;right:12px;display:flex;justify-content:space-between;align-items:end;gap:10px}
+#joystick{width:112px;height:112px;border-radius:50%;background:#08150b66;border:2px solid #ffffff75;position:relative;pointer-events:auto;touch-action:none}
+#stick{position:absolute;width:43px;height:43px;left:32px;top:32px;border-radius:50%;background:#ffffff9c;border:2px solid #fff}
+.controls{display:flex;gap:8px;align-items:end;pointer-events:auto}
+.action{width:60px;height:60px;border-radius:50%;border:1px solid #ffffffaa;background:#102016cc;color:white;font-weight:800;font-size:11px;touch-action:none}
+.action.primary{background:#8a301fdd}.action:active{transform:scale(.95)}
+#hint{position:absolute;bottom:132px;left:12px;font-size:11px;max-width:55vw}
+#start{position:fixed;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;padding:22px;background:linear-gradient(#07130b99,#07130bee);color:white}
+#card{max-width:430px;width:100%;border:1px solid #ffffff44;border-radius:20px;padding:22px;background:#0b1a12f2;box-shadow:0 18px 60px #0008}
+#card h1{margin:0 0 5px;font-size:28px;line-height:1.05}#card p{color:#d5e1d6;font-size:14px;line-height:1.5}
+#play{width:100%;padding:14px;border:0;border-radius:12px;background:#b9ed82;color:#10200b;font-weight:900;font-size:16px}
+#species{font-size:11px;color:#d6e6d4;line-height:1.5}
+@media(min-width:800px){#joystick{width:120px;height:120px}#hint{bottom:145px}}
+</style>
+</head>
+<body>
+<div id="game"></div>
+<div id="hud">
+ <div id="top">
+  <div class="panel" id="stats"><div id="title">WILDLANDS SURVIVAL</div><div>HEALTH <span id="healthN">100</span></div><div class="bar"><div id="health" class="fill"></div></div><div>HUNGER <span id="hungerN">100</span></div><div class="bar"><div id="hunger" class="fill" style="background:#e5b84f"></div></div><div>AMMO <span id="ammoN">12 / ∞</span></div></div>
+  <div class="panel" id="objective"><b>FIELD LOG</b><br><span id="log">Explore the wilderness. Find wildlife.</span><br><span id="pos">Position: 0, 0</span></div>
+ </div>
+ <div id="crosshair">+</div><div id="toast"></div>
+ <div id="hint" class="panel">Drag right side to look • Joystick to move<br>Tap HUNT to fire • Tap PICK to gather nearby resources</div>
+ <div id="bottom"><div id="joystick"><div id="stick"></div></div><div class="controls"><button class="action" id="pick">PICK</button><button class="action" id="reload">RELOAD</button><button class="action primary" id="shoot">HUNT</button></div></div>
+</div>
+<div id="start"><div id="card"><h1>WILDLANDS<br>SURVIVAL</h1><p>A mobile 3D wilderness prototype. Explore a large procedural landscape, discover roaming wildlife, gather supplies and test the hunting system.</p><p><b>World:</b> 1.2 km × 1.2 km prototype map<br><b>Wildlife:</b> 20 species types, with local spawning<br><b>Controls:</b> touch joystick + drag to look</p><div id="species">Deer • Elk • Moose • Bison • Boar • Wolf • Fox • Bear • Rabbit • Hare • Coyote • Lynx • Mountain goat • Sheep • Zebra • Giraffe • Elephant • Crocodile • Ostrich • Eagle</div><p style="font-size:12px">This first version uses simple low-poly placeholder animals. We can replace them with detailed 3D models and add richer animal behaviour in later versions.</p><button id="play">ENTER THE WILDERNESS</button></div></div>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+const mount=document.getElementById('game');
+const scene=new THREE.Scene(); scene.background=new THREE.Color(0x9bc5d2); scene.fog=new THREE.Fog(0x9bc5d2,100,420);
+const camera=new THREE.PerspectiveCamera(72,innerWidth/innerHeight,.1,1200);
+const renderer=new THREE.WebGLRenderer({antialias:false,powerPreference:'high-performance'});
+renderer.setSize(innerWidth,innerHeight); renderer.setPixelRatio(Math.min(devicePixelRatio,1.5)); renderer.shadowMap.enabled=false; renderer.outputColorSpace=THREE.SRGBColorSpace; mount.appendChild(renderer.domElement);
+scene.add(new THREE.HemisphereLight(0xccecff,0x52613b,2));
+const sun=new THREE.DirectionalLight(0xffedc2,2.1);sun.position.set(-120,180,80);scene.add(sun);
+const mat=(color,roughness=1)=>new THREE.MeshStandardMaterial({color,roughness});
+const grassMats=[mat(0x5e8a42),mat(0x6d984b),mat(0x78994b),mat(0x587d3c)];
+const groundGeo=new THREE.PlaneGeometry(1200,1200,100,100);
+const p=groundGeo.attributes.position;
+for(let i=0;i<p.count;i++){const x=p.getX(i),y=p.getY(i);p.setZ(i,Math.sin(x*.018)*2.6+Math.cos(y*.022)*2.1+Math.sin((x+y)*.009)*2.8);}
+groundGeo.computeVertexNormals();const ground=new THREE.Mesh(groundGeo,grassMats[0]);ground.rotation.x=-Math.PI/2;ground.position.y=-1;scene.add(ground);
+// Broad colour patches help the procedural terrain read as varied biomes.
+const patchMat=[mat(0x708b48),mat(0x8b9b55),mat(0x617b45)];
+for(let i=0;i<65;i++){let x=(Math.random()-.5)*1100,z=(Math.random()-.5)*1100,r=18+Math.random()*55;let patch=new THREE.Mesh(new THREE.CircleGeometry(r,12),patchMat[i%3]);patch.rotation.x=-Math.PI/2;patch.position.set(x,-.87,z);scene.add(patch);}
+const waterMat=new THREE.MeshStandardMaterial({color:0x3f9eb5,roughness:.35,metalness:.1});
+const lake=new THREE.Mesh(new THREE.CircleGeometry(58,40),waterMat);lake.rotation.x=-Math.PI/2;lake.position.set(155,-.45,-115);scene.add(lake);
+const trunkGeo=new THREE.CylinderGeometry(.45,.75,6,5),leafGeo=new THREE.ConeGeometry(4.2,11,6);
+const trunkMat=mat(0x64452c),leafMats=[mat(0x285d32),mat(0x326c38),mat(0x477b3d)];
+// Trees use instancing to keep the large map relatively light on mobile.
+const treeCount=1250;const trunks=new THREE.InstancedMesh(trunkGeo,trunkMat,treeCount);const crowns=new THREE.InstancedMesh(leafGeo,leafMats[0],treeCount);
+const dummy=new THREE.Object3D();
+for(let i=0;i<treeCount;i++){let x=(Math.random()-.5)*1120,z=(Math.random()-.5)*1120;if(Math.hypot(x,z)<24||Math.hypot(x-155,z+115)<68){x+=90;}let s=.65+Math.random()*1.25;dummy.position.set(x,2*s-1,z);dummy.scale.set(s,s,s);dummy.rotation.y=Math.random()*6.28;dummy.updateMatrix();trunks.setMatrixAt(i,dummy.matrix);dummy.position.y=7*s-1;dummy.scale.set(s,s,s);dummy.updateMatrix();crowns.setMatrixAt(i,dummy.matrix);if(i%3===0)crowns.setColorAt(i,new THREE.Color().setHex([0x285d32,0x326c38,0x477b3d][i%3]));}
+scene.add(trunks,crowns);
+const rockGeo=new THREE.DodecahedronGeometry(1.7,0),rockMat=mat(0x777b78);const rocks=new THREE.InstancedMesh(rockGeo,rockMat,230);
+for(let i=0;i<230;i++){let x=(Math.random()-.5)*1120,z=(Math.random()-.5)*1120;dummy.position.set(x,.2,z);dummy.scale.set(.6+Math.random()*1.5,.4+Math.random(),.6+Math.random()*1.5);dummy.rotation.set(Math.random(),Math.random()*6,Math.random());dummy.updateMatrix();rocks.setMatrixAt(i,dummy.matrix);}scene.add(rocks);
+const player={x:0,z:0,yaw:0,pitch:0,health:100,hunger:100,ammo:12,reserve:60,wood:0,stone:0};
+const animalDefs=[
+['Deer',0x9a6c42,1.0,1.6],['Elk',0x805638,1.35,1.9],['Moose',0x59442f,1.6,2.0],['Bison',0x4c3828,1.55,1.6],['Boar',0x4d3b2e,.85,.9],['Wolf',0x777b7b,.8,.8],['Fox',0xc66b2c,.55,.6],['Bear',0x3e3028,1.45,1.45],['Rabbit',0xb7a58d,.35,.35],['Hare',0x9c8c72,.38,.38],['Coyote',0x9c8a6e,.7,.7],['Lynx',0xb2a28a,.65,.7],['Mountain goat',0xe1ded0,.8,1.0],['Sheep',0xd8d0b8,.8,.85],['Zebra',0xddd9c8,1.0,1.25],['Giraffe',0xc69b55,1.0,2.4],['Elephant',0x777b7e,1.8,1.8],['Crocodile',0x4b6650,1.25,.45],['Ostrich',0x6c5141,.7,1.8],['Eagle',0x574538,.55,.35]];
+const animals=[];const animalGroup=new THREE.Group();scene.add(animalGroup);
+function createAnimal(def,index){const [name,color,size,height]=def;const g=new THREE.Group();const body=new THREE.Mesh(new THREE.SphereGeometry(1,8,6),mat(color));body.scale.set(size*.72,height*.42,size*.38);body.position.y=height*.48;g.add(body);
+const head=new THREE.Mesh(new THREE.SphereGeometry(size*.25,7,5),mat(color));head.position.set(size*.62,height*.72,0);g.add(head);
+const legs=[];for(let j=0;j<4;j++){const leg=new THREE.Mesh(new THREE.CylinderGeometry(size*.055,size*.075,height*.42,5),mat(color));leg.position.set((j<2?-.35:.35)*size,height*.22,(j%2?-.22:.22)*size);g.add(leg);legs.push(leg);}
+if(['Deer','Elk','Moose'].includes(name)){for(let j=0;j<2;j++){const horn=new THREE.Mesh(new THREE.CylinderGeometry(.025,.07,.48,4),mat(0xd8c8a2));horn.position.set(size*.67,height*.98,(j?-.14:.14)*size);horn.rotation.z=-.35;g.add(horn);}}
+if(name==='Eagle'){const wingM=mat(0x493a30);for(let j=0;j<2;j++){const wing=new THREE.Mesh(new THREE.BoxGeometry(size*.95,.06,size*.28),wingM);wing.position.set(0,height*.8,(j?-.25:.25)*size);g.add(wing);}}
+g.scale.setScalar(1);g.userData={name,legs,baseColor:color,health:1,alive:true,speed:.8+Math.random()*1.6,phase:Math.random()*10,roam:Math.random()*6.28,alert:0,def};return g;}
+for(let i=0;i<150;i++){const idx=Math.floor(Math.random()*animalDefs.length),a=createAnimal(animalDefs[idx],idx);let x=(Math.random()-.5)*1080,z=(Math.random()-.5)*1080;if(Math.hypot(x,z)<35){x+=90;}a.position.set(x,0,z);a.rotation.y=Math.random()*6.28;animals.push(a);animalGroup.add(a);}
+const keys={};addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;if(e.key===' ')e.preventDefault();});addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
+let joy={x:0,y:0,active:false},look={active:false,x:0,y:0,lastX:0,lastY:0};const joyEl=document.getElementById('joystick'),stick=document.getElementById('stick');
+joyEl.addEventListener('pointerdown',e=>{joy.active=true;joyEl.setPointerCapture(e.pointerId);moveJoy(e);});
+joyEl.addEventListener('pointermove',e=>{if(joy.active)moveJoy(e);});function moveJoy(e){const r=joyEl.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;let dx=e.clientX-cx,dy=e.clientY-cy,max=36,l=Math.hypot(dx,dy)||1;if(l>max){dx=dx/l*max;dy=dy/l*max;}joy.x=dx/max;joy.y=dy/max;stick.style.transform=`translate(${dx}px,${dy}px)`;}
+function endJoy(){joy.active=false;joy.x=joy.y=0;stick.style.transform='translate(0,0)';}joyEl.addEventListener('pointerup',endJoy);joyEl.addEventListener('pointercancel',endJoy);
+renderer.domElement.addEventListener('pointerdown',e=>{if(e.clientX<innerWidth*.38&&e.clientY>innerHeight*.55)return;look.active=true;look.lastX=e.clientX;look.lastY=e.clientY;renderer.domElement.setPointerCapture(e.pointerId);});
+renderer.domElement.addEventListener('pointermove',e=>{if(!look.active)return;const dx=e.clientX-look.lastX,dy=e.clientY-look.lastY;player.yaw-=dx*.004;player.pitch=Math.max(-.65,Math.min(.65,player.pitch-dy*.003));look.lastX=e.clientX;look.lastY=e.clientY;});
+renderer.domElement.addEventListener('pointerup',()=>look.active=false);renderer.domElement.addEventListener('pointercancel',()=>look.active=false);
+function toast(s){const el=document.getElementById('toast');el.textContent=s;el.style.opacity=1;clearTimeout(toast.t);toast.t=setTimeout(()=>el.style.opacity=0,1700);}
+function shoot(){if(player.ammo<=0){toast('Out of ammo — reload!');return;}player.ammo--;let best=null,bestD=Infinity;const origin=new THREE.Vector3(player.x,1.4,player.z);const dir=new THREE.Vector3(-Math.sin(player.yaw)*Math.cos(player.pitch),Math.sin(player.pitch),-Math.cos(player.yaw)*Math.cos(player.pitch)).normalize();for(const a of animals){if(!a.userData.alive)continue;const target=a.position.clone().add(new THREE.Vector3(0,.7,0));const delta=target.sub(origin),d=delta.length();if(d>95)continue;const angle=dir.angleTo(delta.normalize());if(angle<.12&&d<bestD){best=a;bestD=d;}}
+if(best){best.userData.health-=.55;best.userData.alert=4;best.userData.roam=Math.atan2(best.position.x-player.x,best.position.z-player.z);if(best.userData.health<=0){best.userData.alive=false;best.visible=false;document.getElementById('log').textContent=`Harvest ${best.userData.name} with PICK nearby.`;toast(`${best.userData.name} down — approach to harvest`);}else toast(`Hit ${best.userData.name}!`);}else toast('Shot fired — no hit');updateHud();}
+function reload(){const n=Math.min(12-player.ammo,player.reserve);if(n<=0){toast('No reserve ammunition');return;}player.ammo+=n;player.reserve-=n;updateHud();toast('Reloaded');}
+function pick(){let found=null,dmin=6;for(const a of animals){if(!a.userData.alive&&a.position.distanceTo(new THREE.Vector3(player.x,0,player.z))<dmin){found=a;dmin=a.position.distanceTo(new THREE.Vector3(player.x,0,player.z));}}if(found){player.hunger=Math.min(100,player.hunger+12);player.wood+=1;found.userData.alive=true;found.userData.health=1;found.visible=false;setTimeout(()=>{found.position.set((Math.random()-.5)*1000,0,(Math.random()-.5)*1000);found.visible=true;},5000);document.getElementById('log').textContent=`Harvested ${found.userData.name}. Food +12`;toast('Harvested meat • hunger restored');}else{player.wood+=1;if(Math.random()<.35)player.stone++;toast('Gathered resources • wood '+player.wood+' • stone '+player.stone);}updateHud();}
+document.getElementById('shoot').addEventListener('pointerdown',e=>{e.preventDefault();shoot()});document.getElementById('reload').addEventListener('pointerdown',e=>{e.preventDefault();reload()});document.getElementById('pick').addEventListener('pointerdown',e=>{e.preventDefault();pick()});
+function updateHud(){document.getElementById('healthN').textContent=Math.ceil(player.health);document.getElementById('hungerN').textContent=Math.ceil(player.hunger);document.getElementById('health').style.width=player.health+'%';document.getElementById('hunger').style.width=player.hunger+'%';document.getElementById('ammoN').textContent=player.ammo+' / '+player.reserve;document.getElementById('pos').textContent=`Position: ${Math.round(player.x)}, ${Math.round(player.z)} • Wildlife: ${animals.filter(a=>a.userData.alive&&a.position.distanceTo(new THREE.Vector3(player.x,0,player.z))<100).length} nearby`;}
+let started=false;document.getElementById('play').addEventListener('click',()=>{document.getElementById('start').style.display='none';started=true;toast('Stay alert. Wildlife is roaming nearby.');});
+let last=performance.now(),elapsed=0;
+function heightAt(x,z){return Math.sin(x*.018)*2.6+Math.cos(z*.022)*2.1+Math.sin((x+z)*.009)*2.8;}
+function animate(now){requestAnimationFrame(animate);const dt=Math.min((now-last)/1000,.04);last=now;if(started){elapsed+=dt;const forward=(keys.w||keys.arrowup?1:0)-(keys.s||keys.arrowdown?1:0)-joy.y;const side=(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0)+joy.x;const speed=(keys.shift?15:8)*dt;player.x+=(-Math.sin(player.yaw)*forward+Math.cos(player.yaw)*side)*speed;player.z+=(-Math.cos(player.yaw)*forward-Math.sin(player.yaw)*side)*speed;player.x=Math.max(-585,Math.min(585,player.x));player.z=Math.max(-585,Math.min(585,player.z));player.hunger=Math.max(0,player.hunger-dt*.12);if(player.hunger===0)player.health=Math.max(0,player.health-dt*.5);
+const px=player.x, pz=player.z;const camDist=5.8;camera.position.set(px+Math.sin(player.yaw)*camDist,2.7+player.pitch*2,pz+Math.cos(player.yaw)*camDist);camera.lookAt(px,1.4,pz);camera.rotation.order='YXZ';camera.rotation.y=player.yaw+Math.PI;camera.rotation.x=-player.pitch;
+for(const a of animals){if(!a.userData.alive)continue;const u=a.userData;const dx=a.position.x-px,dz=a.position.z-pz,dist=Math.hypot(dx,dz);if(dist<110){u.phase+=dt*(u.speed+1);if(u.alert>0){u.alert-=dt;a.position.x+=Math.sin(u.roam)*dt*4;a.position.z+=Math.cos(u.roam)*dt*4;}else{if(Math.random()<dt*.16)u.roam+=(Math.random()-.5)*2;a.position.x+=Math.sin(u.roam)*dt*u.speed;a.position.z+=Math.cos(u.roam)*dt*u.speed;}a.rotation.y=u.roam;u.legs.forEach((l,i)=>l.rotation.x=Math.sin(u.phase*5+i*Math.PI)*.25);}else if(Math.random()<dt*.015){u.roam+=(Math.random()-.5)*2;}a.position.x=Math.max(-580,Math.min(580,a.position.x));a.position.z=Math.max(-580,Math.min(580,a.position.z));}
+if(Math.floor(elapsed)%5===0&&Math.floor(elapsed)!==animate.lastHungerTick){animate.lastHungerTick=Math.floor(elapsed);updateHud();}
+document.getElementById('pos').textContent=`Position: ${Math.round(px)}, ${Math.round(pz)} • ${animals.filter(a=>a.userData.alive&&a.position.distanceTo(new THREE.Vector3(px,0,pz))<100).length} wildlife nearby`;
+}
+renderer.render(scene,camera);}
+requestAnimationFrame(animate);
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));});
+</script>
+</body>
+</html>
